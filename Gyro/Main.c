@@ -1,0 +1,369 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2026 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+#define MPU6050_add (0x68 <<1) //shifted for 1/0 to R/W later
+#define SMPLRT_DIV	 0x19
+#define CONFIG	     0x1A
+#define GYRO_CONFIG	 0x1B
+#define ACCEL_CONFIG 0x1C
+#define WHO_AM_I	 0x75
+#define ACCEL_XOUT_H 0x3B
+#define PWR_MGMT_1   0x6B
+
+
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+I2C_HandleTypeDef hi2c1;
+
+/* USER CODE BEGIN PV */
+
+typedef struct
+{
+    int16_t Accel_X;
+    int16_t Accel_Y;
+    int16_t Accel_Z;
+    int16_t Temp;
+    int16_t Gyro_X;
+    int16_t Gyro_Y;
+    int16_t Gyro_Z;
+} MPU6050_Data_t;
+
+float Temp;
+float Gx ;
+float Gy ;
+float Gz ;
+
+float Ax;
+float Ay;
+float Az;
+
+uint8_t  error = 0;
+uint8_t buf[14];
+
+MPU6050_Data_t mpu_data;
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_I2C1_Init(void);
+/* USER CODE BEGIN PFP */
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_I2C1_Init();
+
+
+
+  /* USER CODE BEGIN 2 */
+  HAL_StatusTypeDef MPU6050_Read_All(void);
+  HAL_StatusTypeDef MPU6050_Init(void);
+  HAL_StatusTypeDef MPU6050_Write(uint8_t reg, uint8_t data);
+
+	   if (MPU6050_Init() != HAL_OK)
+	    {
+	        while(1);
+	        error = 1;
+	        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+	        HAL_Delay(500);
+	        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+	       	HAL_Delay(500);
+	    }
+
+
+
+
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+	  if(MPU6050_Read_All() == HAL_OK)
+	  {
+
+           Ax = mpu_data.Accel_X / 16384.0f;
+           Ay = mpu_data.Accel_Y / 16384.0f;
+           Az = mpu_data.Accel_Z / 16384.0f;
+
+           Gx = mpu_data.Gyro_X / 131.0f;
+           Gy = mpu_data.Gyro_Y / 131.0f;
+           Gz = mpu_data.Gyro_Z / 131.0f;
+          Temp = (mpu_data.Temp / 340.0f) + 36.53f;
+
+	  }
+	  HAL_Delay(5);
+
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+  }
+  /* USER CODE END 3 */
+}
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 16;
+  RCC_OscInitStruct.PLL.PLLN = 336;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
+
+  /* USER CODE END MX_GPIO_Init_1 */
+
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PA5 */
+  GPIO_InitStruct.Pin = GPIO_PIN_5;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+
+  /* USER CODE END MX_GPIO_Init_2 */
+}
+
+/* USER CODE BEGIN 4 */
+
+HAL_StatusTypeDef MPU6050_Write(uint8_t reg, uint8_t data)//Function to write to the MPU
+{
+	uint8_t buff[2] = {reg,data};
+	return HAL_I2C_Master_Transmit(&hi2c1, MPU6050_add, buff, 2, HAL_MAX_DELAY);
+}
+
+
+HAL_StatusTypeDef MPU6050_Init(void)  //Code to check whether the connection is successful or not
+{
+	uint8_t check ;
+	if(HAL_I2C_Mem_Read(&hi2c1, MPU6050_add, WHO_AM_I, I2C_MEMADD_SIZE_8BIT, &check, 1, HAL_MAX_DELAY) !=HAL_OK)
+		return HAL_ERROR;
+
+	if(check != 0x68)
+		return HAL_ERROR;
+		/* Wake up sensor */
+	MPU6050_Write(PWR_MGMT_1, 0x00);
+
+		/* Sample rate = 1 kHz / (1+7) = 125 Hz */
+	MPU6050_Write(SMPLRT_DIV, 0x07);
+
+		/* Digital low pass filter = 94 Hz */
+	MPU6050_Write(CONFIG, 0x02);
+
+		/* Gyro full scale = ±250 °/s */
+	MPU6050_Write(GYRO_CONFIG, 0x00);
+
+		/* Accel full scale = ±2 g */
+	MPU6050_Write(ACCEL_CONFIG, 0x00);
+
+		return HAL_OK;
+}
+
+HAL_StatusTypeDef MPU6050_Read_All(void)
+{
+    uint8_t buf[14];
+    if (HAL_I2C_Mem_Read(&hi2c1, MPU6050_add, ACCEL_XOUT_H, I2C_MEMADD_SIZE_8BIT, buf, 14, HAL_MAX_DELAY) != HAL_OK)
+        return HAL_ERROR;
+
+    mpu_data.Accel_X = (int16_t)(buf[0] << 8 | buf[1]);
+    mpu_data.Accel_Y = (int16_t)(buf[2] << 8 | buf[3]);
+    mpu_data.Accel_Z = (int16_t)(buf[4] << 8 | buf[5]);
+    mpu_data.Temp    = (int16_t)(buf[6] << 8 | buf[7]);
+    mpu_data.Gyro_X  = (int16_t)(buf[8] << 8 | buf[9]);
+    mpu_data.Gyro_Y  = (int16_t)(buf[10] << 8 | buf[11]);
+    mpu_data.Gyro_Z  = (int16_t)(buf[12] << 8 | buf[13]);
+
+    return HAL_OK;
+}
+
+/* USER CODE END 4 */
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  __disable_irq();
+  while (1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
+}
+#ifdef USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
