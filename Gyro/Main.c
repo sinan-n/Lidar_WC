@@ -31,7 +31,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define MPU6050_add (0x68 <<1) //shifted for 1/0 to R/W later
+#define MPU6050_add (0x68<<1 ) //shifted for 1/0 to R/W later
 #define SMPLRT_DIV	 0x19
 #define CONFIG	     0x1A
 #define GYRO_CONFIG	 0x1B
@@ -53,6 +53,7 @@
 I2C_HandleTypeDef hi2c1;
 
 /* USER CODE BEGIN PV */
+int run = 0;
 
 typedef struct
 {
@@ -74,10 +75,21 @@ float Ax;
 float Ay;
 float Az;
 
-uint8_t  error = 0;
+uint16_t caliber = 0 ; //calibration values
+float cal_Accel_X = 0;
+float cal_Accel_Y = 0;
+float cal_Accel_Z = 0;
+float cal_Gyro_X = 0;
+float cal_Gyro_Y = 0;
+float cal_Gyro_Z = 0;
+
+uint8_t error = 0;
 uint8_t buf[14];
 
 MPU6050_Data_t mpu_data;
+
+
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -123,23 +135,25 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C1_Init();
-
-
-
   /* USER CODE BEGIN 2 */
   HAL_StatusTypeDef MPU6050_Read_All(void);
   HAL_StatusTypeDef MPU6050_Init(void);
   HAL_StatusTypeDef MPU6050_Write(uint8_t reg, uint8_t data);
+  HAL_StatusTypeDef MPU6050_Calibration(void);
 
 	   if (MPU6050_Init() != HAL_OK)
 	    {
-	        while(1);
-	        error = 1;
-	        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-	        HAL_Delay(500);
-	        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-	       	HAL_Delay(500);
+	        while(1)
+	        {
+			error = 1;
+				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+				HAL_Delay(500);
+				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+				HAL_Delay(500);
+	        }
 	    }
+	   MPU6050_Calibration();
+
 
 
 
@@ -150,20 +164,22 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  run++;
 	  if(MPU6050_Read_All() == HAL_OK)
 	  {
 
-           Ax = mpu_data.Accel_X / 16384.0f;
-           Ay = mpu_data.Accel_Y / 16384.0f;
-           Az = mpu_data.Accel_Z / 16384.0f;
+           Ax = ((mpu_data.Accel_X / 16384.0f)-cal_Accel_X)*9.81;
+           Ay = ((mpu_data.Accel_Y / 16384.0f)-cal_Accel_Y)*9.81;
+           Az = ((mpu_data.Accel_Z / 16384.0f)-cal_Accel_Z)*9.81;
 
-           Gx = mpu_data.Gyro_X / 131.0f;
-           Gy = mpu_data.Gyro_Y / 131.0f;
-           Gz = mpu_data.Gyro_Z / 131.0f;
+
+           Gx = (mpu_data.Gyro_X / 131.0f)-cal_Gyro_X;
+           Gy = (mpu_data.Gyro_Y / 131.0f)-cal_Gyro_Y;
+           Gz = (mpu_data.Gyro_Z / 131.0f)-cal_Gyro_Z;
           Temp = (mpu_data.Temp / 340.0f) + 36.53f;
 
 	  }
-	  HAL_Delay(5);
+
 
     /* USER CODE END WHILE */
 
@@ -318,9 +334,11 @@ HAL_StatusTypeDef MPU6050_Init(void)  //Code to check whether the connection is 
 		return HAL_OK;
 }
 
+
+
 HAL_StatusTypeDef MPU6050_Read_All(void)
 {
-    uint8_t buf[14];
+
     if (HAL_I2C_Mem_Read(&hi2c1, MPU6050_add, ACCEL_XOUT_H, I2C_MEMADD_SIZE_8BIT, buf, 14, HAL_MAX_DELAY) != HAL_OK)
         return HAL_ERROR;
 
@@ -333,6 +351,39 @@ HAL_StatusTypeDef MPU6050_Read_All(void)
     mpu_data.Gyro_Z  = (int16_t)(buf[12] << 8 | buf[13]);
 
     return HAL_OK;
+}
+HAL_StatusTypeDef MPU6050_Calibration(void)
+{
+	if(MPU6050_Read_All() == HAL_OK)
+	{
+		for( caliber = 0 ;  caliber <2000 ;  caliber++ )
+		{
+			MPU6050_Read_All();
+
+			cal_Accel_X += mpu_data.Accel_X/ 16384.0f;
+			cal_Accel_Y += mpu_data.Accel_Y/ 16384.0f;
+			cal_Accel_Z += mpu_data.Accel_Z/ 16384.0f;
+
+			cal_Gyro_X  += mpu_data.Gyro_X/ 131.0f;
+			cal_Gyro_Y  += mpu_data.Gyro_Y/ 131.0f;
+			cal_Gyro_Z  += mpu_data.Gyro_Z/ 131.0f;
+
+
+		}
+
+		cal_Accel_X /= 2000;
+		cal_Accel_Y /= 2000;
+		cal_Accel_Z /= 2000;
+
+		cal_Gyro_X /= 2000;
+		cal_Gyro_Y /= 2000;
+		cal_Gyro_Z /= 2000;
+
+
+
+
+	}
+	return HAL_OK;
 }
 
 /* USER CODE END 4 */
