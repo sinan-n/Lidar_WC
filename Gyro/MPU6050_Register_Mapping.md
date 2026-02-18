@@ -138,4 +138,5 @@ The following configuration is used in this project.
 | GYRO_CONFIG     | 0x1B          | Gyroscope full-scale range and self-test configuration.                        |
 | ACCEL_CONFIG    | 0x1C          | Accelerometer full-scale range and self-test configuration.                    |
 | ACCEL_XOUT_H    | 0x3B          | High byte of X-axis accelerometer data (paired with ACCEL_XOUT_L for full data). |
+| PWR_MGMT_1      | 0x6B          | Used to turn on the device by wirting 0 to the bit 6                          |
 | WHO_AM_I        | 0x75          | Device ID register. Returns 0x68 for MPU6050 to confirm communication.        |
