@@ -6,8 +6,8 @@ The following configuration is used in this project.
 ### Hardware Configuration
 - **Microcontroller:** STM32 Nucleo F411RE  
 - **I²C Pins:**
-  - **PB6** → SCL  
-  - **PB7** → SDA  
+  - **PB10** → SCL  
+  - **PB3** → SDA  
 - **MPU6050 Supply Voltage:** 3.3 V  
   - Initially supplied from the Nucleo board  
   - Will be replaced with dedicated power circuitry in the final design  
