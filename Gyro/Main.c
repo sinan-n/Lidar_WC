@@ -31,6 +31,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+//Addresses of Mpu 6050
 #define MPU6050_add (0x68<<1 ) //shifted for 1/0 to R/W later
 #define SMPLRT_DIV	 0x19
 #define CONFIG	     0x1A
@@ -40,8 +41,6 @@
 #define ACCEL_XOUT_H 0x3B
 #define PWR_MGMT_1   0x6B
 
-
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -50,11 +49,13 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-I2C_HandleTypeDef hi2c1;
+I2C_HandleTypeDef hi2c2;
 
 /* USER CODE BEGIN PV */
-int run = 0;
-
+uint8_t run = 0;
+uint8_t error = 0;
+uint8_t buf[14];
+uint8_t check;
 typedef struct
 {
     int16_t Accel_X;
@@ -65,43 +66,24 @@ typedef struct
     int16_t Gyro_Y;
     int16_t Gyro_Z;
 } MPU6050_Data_t;
-
-float Temp;
-float Gx ;
-float Gy ;
-float Gz ;
-
-float Ax;
-float Ay;
-float Az;
-
-uint16_t caliber = 0 ; //calibration values
-float cal_Accel_X = 0;
-float cal_Accel_Y = 0;
-float cal_Accel_Z = 0;
-float cal_Gyro_X = 0;
-float cal_Gyro_Y = 0;
-float cal_Gyro_Z = 0;
-
-uint8_t error = 0;
-uint8_t buf[14];
-
 MPU6050_Data_t mpu_data;
 
-
-
+uint16_t Ax;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_I2C1_Init(void);
+static void MX_I2C2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+HAL_StatusTypeDef MPU6050_INIT(void);
+HAL_StatusTypeDef MPU6050_Write(uint8_t reg, uint8_t data);
+HAL_StatusTypeDef MPU6050_Read_All(void);
 
 /* USER CODE END 0 */
 
@@ -134,27 +116,8 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_I2C1_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
-  HAL_StatusTypeDef MPU6050_Read_All(void);
-  HAL_StatusTypeDef MPU6050_Init(void);
-  HAL_StatusTypeDef MPU6050_Write(uint8_t reg, uint8_t data);
-  HAL_StatusTypeDef MPU6050_Calibration(void);
-
-	   if (MPU6050_Init() != HAL_OK)
-	    {
-	        while(1)
-	        {
-			error = 1;
-				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-				HAL_Delay(500);
-				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-				HAL_Delay(500);
-	        }
-	    }
-	   MPU6050_Calibration();
-
-
 
 
 
@@ -164,21 +127,12 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  run++;
-	  if(MPU6050_Read_All() == HAL_OK)
+	  if (MPU6050_Read_All() == HAL_OK)
 	  {
-
-           Ax = ((mpu_data.Accel_X / 16384.0f)-cal_Accel_X)*9.81;
-           Ay = ((mpu_data.Accel_Y / 16384.0f)-cal_Accel_Y)*9.81;
-           Az = ((mpu_data.Accel_Z / 16384.0f)-cal_Accel_Z)*9.81;
-
-
-           Gx = (mpu_data.Gyro_X / 131.0f)-cal_Gyro_X;
-           Gy = (mpu_data.Gyro_Y / 131.0f)-cal_Gyro_Y;
-           Gz = (mpu_data.Gyro_Z / 131.0f)-cal_Gyro_Z;
-          Temp = (mpu_data.Temp / 340.0f) + 36.53f;
-
+		  Ax = mpu_data.Accel_X;
 	  }
+	  run++;
+
 
 
     /* USER CODE END WHILE */
@@ -235,36 +189,36 @@ void SystemClock_Config(void)
 }
 
 /**
-  * @brief I2C1 Initialization Function
+  * @brief I2C2 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_I2C1_Init(void)
+static void MX_I2C2_Init(void)
 {
 
-  /* USER CODE BEGIN I2C1_Init 0 */
+  /* USER CODE BEGIN I2C2_Init 0 */
 
-  /* USER CODE END I2C1_Init 0 */
+  /* USER CODE END I2C2_Init 0 */
 
-  /* USER CODE BEGIN I2C1_Init 1 */
+  /* USER CODE BEGIN I2C2_Init 1 */
 
-  /* USER CODE END I2C1_Init 1 */
-  hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 100000;
-  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 0;
-  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  /* USER CODE END I2C2_Init 1 */
+  hi2c2.Instance = I2C2;
+  hi2c2.Init.ClockSpeed = 100000;
+  hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c2.Init.OwnAddress1 = 0;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c2.Init.OwnAddress2 = 0;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN I2C1_Init 2 */
+  /* USER CODE BEGIN I2C2_Init 2 */
 
-  /* USER CODE END I2C1_Init 2 */
+  /* USER CODE END I2C2_Init 2 */
 
 }
 
@@ -275,24 +229,12 @@ static void MX_I2C1_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
   /* USER CODE BEGIN MX_GPIO_Init_1 */
 
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : PA5 */
-  GPIO_InitStruct.Pin = GPIO_PIN_5;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -300,47 +242,58 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
 HAL_StatusTypeDef MPU6050_Write(uint8_t reg, uint8_t data)//Function to write to the MPU
 {
 	uint8_t buff[2] = {reg,data};
-	return HAL_I2C_Master_Transmit(&hi2c1, MPU6050_add, buff, 2, HAL_MAX_DELAY);
+	return HAL_I2C_Master_Transmit(&hi2c2, MPU6050_add, buff, 2, HAL_MAX_DELAY);
 }
 
-
-HAL_StatusTypeDef MPU6050_Init(void)  //Code to check whether the connection is successful or not
+HAL_StatusTypeDef MPU6050_INIT(void)
 {
-	uint8_t check ;
-	if(HAL_I2C_Mem_Read(&hi2c1, MPU6050_add, WHO_AM_I, I2C_MEMADD_SIZE_8BIT, &check, 1, HAL_MAX_DELAY) !=HAL_OK)
-		return HAL_ERROR;
 
+	if(HAL_I2C_Mem_Read(&hi2c2, MPU6050_add, WHO_AM_I, 1, &check, 1, HAL_MAX_DELAY) != HAL_OK)
+	{
+		error = 1;
+		return HAL_ERROR;
+	}
 	if(check != 0x68)
+	{
+		error = 2;
 		return HAL_ERROR;
-		/* Wake up sensor */
-	MPU6050_Write(PWR_MGMT_1, 0x00);
+	}
+	else
+	{
 
-		/* Sample rate = 1 kHz / (1+7) = 125 Hz */
-	MPU6050_Write(SMPLRT_DIV, 0x07);
+			/*Turns on the Gyro */
+		MPU6050_Write(PWR_MGMT_1, 0x00);
 
-		/* Digital low pass filter = 94 Hz */
-	MPU6050_Write(CONFIG, 0x02);
+			/* Sample rate = 1 kHz / (1+9) = 100 Hz */
+		MPU6050_Write(SMPLRT_DIV, 0x09);
 
-		/* Gyro full scale = ±250 °/s */
-	MPU6050_Write(GYRO_CONFIG, 0x00);
+			/* Digital low pass filter = 21Hz */
+		MPU6050_Write(CONFIG, 0x04);
 
-		/* Accel full scale = ±2 g */
-	MPU6050_Write(ACCEL_CONFIG, 0x00);
+			/* Gyro full scale = ±250 °/s */
+		MPU6050_Write(GYRO_CONFIG, 0x00);
+
+			/* Accel full scale = ±2 g */
+		MPU6050_Write(ACCEL_CONFIG, 0x00);
+	}
 
 		return HAL_OK;
+
+
 }
-
-
 
 HAL_StatusTypeDef MPU6050_Read_All(void)
 {
 
-    if (HAL_I2C_Mem_Read(&hi2c1, MPU6050_add, ACCEL_XOUT_H, I2C_MEMADD_SIZE_8BIT, buf, 14, HAL_MAX_DELAY) != HAL_OK)
-        return HAL_ERROR;
+    if (HAL_I2C_Mem_Read(&hi2c2, MPU6050_add, ACCEL_XOUT_H, I2C_MEMADD_SIZE_8BIT, buf, 14, HAL_MAX_DELAY) != HAL_OK)
+    {
+    	error = 4;
+    	return HAL_ERROR;
+    }
+
 
     mpu_data.Accel_X = (int16_t)(buf[0] << 8 | buf[1]);
     mpu_data.Accel_Y = (int16_t)(buf[2] << 8 | buf[3]);
@@ -351,39 +304,6 @@ HAL_StatusTypeDef MPU6050_Read_All(void)
     mpu_data.Gyro_Z  = (int16_t)(buf[12] << 8 | buf[13]);
 
     return HAL_OK;
-}
-HAL_StatusTypeDef MPU6050_Calibration(void)
-{
-	if(MPU6050_Read_All() == HAL_OK)
-	{
-		for( caliber = 0 ;  caliber <2000 ;  caliber++ )
-		{
-			MPU6050_Read_All();
-
-			cal_Accel_X += mpu_data.Accel_X/ 16384.0f;
-			cal_Accel_Y += mpu_data.Accel_Y/ 16384.0f;
-			cal_Accel_Z += mpu_data.Accel_Z/ 16384.0f;
-
-			cal_Gyro_X  += mpu_data.Gyro_X/ 131.0f;
-			cal_Gyro_Y  += mpu_data.Gyro_Y/ 131.0f;
-			cal_Gyro_Z  += mpu_data.Gyro_Z/ 131.0f;
-
-
-		}
-
-		cal_Accel_X /= 2000;
-		cal_Accel_Y /= 2000;
-		cal_Accel_Z /= 2000;
-
-		cal_Gyro_X /= 2000;
-		cal_Gyro_Y /= 2000;
-		cal_Gyro_Z /= 2000;
-
-
-
-
-	}
-	return HAL_OK;
 }
 
 /* USER CODE END 4 */
